@@ -8,11 +8,11 @@ class VNPayPayment extends Payment {
             vnp_Version: '2.1.0',
             vnp_Command: 'pay',
             vnp_TmnCode: process.env.VNP_TMNCODE,
-            vnp_Amount: data.amount * 100, // Đảm bảo nhân với 100
+            vnp_Amount: data.amount * 100,
             vnp_OrderInfo: data.description,
             vnp_ReturnUrl: process.env.VNP_RETURNURL,
-            vnp_IpAddr: req.connection.remoteAddress.replace('::ffff:', ''), // Chuyển IPv6 thành IPv4 nếu cần
-            vnp_CreateDate: moment().format('YYYYMMDDHHmmss'), // Đảm bảo định dạng đúng
+            vnp_IpAddr: req.connection.remoteAddress.replace('::ffff:', ''),
+            vnp_CreateDate: moment().format('YYYYMMDDHHmmss'),
         };
 
 
