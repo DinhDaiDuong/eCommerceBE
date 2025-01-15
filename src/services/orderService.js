@@ -1,6 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import db from "../models/index";
-import paypal from 'paypal-rest-sdk'
+import paypal from 'paypal-rest-sdk';
+import PaymentFactory from './payments/paymentFactory';
 const { Op } = require("sequelize");
 var querystring = require('qs');
 var crypto = require("crypto");
@@ -208,44 +209,78 @@ let getDetailOrderById = (id) => {
         }
     })
 }
-let updateStatusOrder = (data) => {
+// let updateStatusOrder = (data) => {
+//     return new Promise(async (resolve, reject) => {
+//         try {
+//             if (!data.id || !data.statusId) {
+//                 resolve({
+//                     errCode: 1,
+//                     errMessage: 'Missing required parameter !'
+//                 })
+//             } else {
+//                 let order = await db.OrderProduct.findOne({
+//                     where: { id: data.id },
+//                     raw: false
+//                 })
+//                 order.statusId = data.statusId
+//                 await order.save()
+//                 // cong lai stock khi huy don
+//                 if (data.statusId == 'S7' && data.dataOrder.orderDetail && data.dataOrder.orderDetail.length > 0) {
+//                     for (let i = 0; i < data.dataOrder.orderDetail.length; i++) {
+//                         let productDetailSize = await db.ProductDetailSize.findOne({
+//                             where: { id: data.dataOrder.orderDetail[i].productDetailSize.id },
+//                             raw: false
+//                         })
+//                         productDetailSize.stock = productDetailSize.stock + data.dataOrder.orderDetail[i].quantity
+//                         await productDetailSize.save()
+//                     }
+//                 }
+
+
+//                 resolve({
+//                     errCode: 0,
+//                     errMessage: 'ok'
+//                 })
+//             }
+//         } catch (error) {
+//             reject(error)
+//         }
+//     })
+// }
+let updateStatusOrder = async (data) => {
     return new Promise(async (resolve, reject) => {
         try {
-            if (!data.id || !data.statusId) {
-                resolve({
-                    errCode: 1,
-                    errMessage: 'Missing required parameter !'
-                })
-            } else {
-                let order = await db.OrderProduct.findOne({
-                    where: { id: data.id },
-                    raw: false
-                })
-                order.statusId = data.statusId
-                await order.save()
-                // cong lai stock khi huy don
-                if (data.statusId == 'S7' && data.dataOrder.orderDetail && data.dataOrder.orderDetail.length > 0) {
-                    for (let i = 0; i < data.dataOrder.orderDetail.length; i++) {
-                        let productDetailSize = await db.ProductDetailSize.findOne({
-                            where: { id: data.dataOrder.orderDetail[i].productDetailSize.id },
-                            raw: false
-                        })
-                        productDetailSize.stock = productDetailSize.stock + data.dataOrder.orderDetail[i].quantity
-                        await productDetailSize.save()
-                    }
-                }
+            let order = await db.OrderProduct.findOne({ where: { id: data.id }, raw: false });
 
-
-                resolve({
-                    errCode: 0,
-                    errMessage: 'ok'
-                })
+            if (!order) {
+                return resolve({ errCode: 1, errMessage: "Order not found" });
             }
+
+            // Khởi tạo trạng thái
+            order.initStates();
+
+            // Thực hiện hành động
+            if (data.action === 'confirm') {
+                order.confirm();
+            } else if (data.action === 'ship') {
+                order.ship();
+            } else if (data.action === 'complete') {
+                order.complete();
+            } else if (data.action === 'cancel') {
+                order.cancel();
+            } else {
+                return resolve({ errCode: 1, errMessage: "Invalid action" });
+            }
+
+            await order.save();
+
+            resolve({ errCode: 0, errMessage: "Order status updated", statusId: order.statusId });
         } catch (error) {
-            reject(error)
+            reject(error);
         }
-    })
-}
+    });
+};
+
 let getAllOrdersByUser = (userId) => {
     return new Promise(async (resolve, reject) => {
         try {
@@ -372,96 +407,196 @@ let getAllOrdersByShipper = (data) => {
         }
     })
 }
+// let paymentOrder = (data) => {
+//     return new Promise(async (resolve, reject) => {
+//         try {
+//             let listItem = []
+//             let totalPriceProduct = 0
+//             for (let i = 0; i < data.result.length; i++) {
+//                 data.result[i].productDetailSize = await db.ProductDetailSize.findOne({
+//                     where: { id: data.result[i].productId },
+//                     include: [
+//                         { model: db.Allcode, as: 'sizeData' },
+//                     ],
+//                     raw: true,
+//                     nest: true
+//                 })
+//                 data.result[i].productDetail = await db.ProductDetail.findOne({
+//                     where: { id: data.result[i].productDetailSize.productdetailId }
+//                 })
+//                 data.result[i].product = await db.Product.findOne({
+//                     where: { id: data.result[i].productDetail.productId }
+//                 })
+//                 data.result[i].realPrice = parseFloat((data.result[i].realPrice / EXCHANGE_RATES.USD).toFixed(2))
+
+//                 console.log(data.result[i].realPrice)
+//                 console.log(data.total)
+//                 listItem.push({
+//                     "name": data.result[i].product.name + " | " + data.result[i].productDetail.nameDetail + " | " + data.result[i].productDetailSize.sizeData.value,
+//                     "sku": data.result[i].productId + "",
+//                     "price": data.result[i].realPrice + "",
+//                     "currency": "USD",
+//                     "quantity": data.result[i].quantity
+//                 })
+//                 totalPriceProduct += data.result[i].realPrice * data.result[i].quantity
+//                 console.log(data.total - totalPriceProduct)
+//             }
+//             listItem.push({
+//                 "name": "Phi ship + Voucher",
+//                 "sku": "1",
+//                 "price": parseFloat(data.total - totalPriceProduct).toFixed(2) + "",
+//                 "currency": "USD",
+//                 "quantity": 1
+//             })
+
+
+//             var create_payment_json = {
+//                 "intent": "sale",
+//                 "payer": {
+//                     "payment_method": "paypal"
+//                 },
+//                 "redirect_urls": {
+//                     "return_url": `http://localhost:5000/payment/success`,
+//                     "cancel_url": "http://localhost:5000/payment/cancel"
+//                 },
+//                 "transactions": [{
+//                     "item_list": {
+//                         "items": listItem
+//                     },
+//                     "amount": {
+//                         "currency": "USD",
+//                         "total": data.total
+//                     },
+//                     "description": "This is the payment description."
+//                 }]
+//             };
+
+//             paypal.payment.create(create_payment_json, function (error, payment) {
+//                 if (error) {
+//                     resolve({
+//                         errCode: -1,
+//                         errMessage: error,
+
+//                     })
+
+
+//                 } else {
+
+//                     resolve({
+//                         errCode: 0,
+//                         errMessage: 'ok',
+//                         link: payment.links[1].href
+//                     })
+
+//                 }
+//             });
+
+
+//         } catch (error) {
+//             reject(error)
+//         }
+//     })
+// }
+// let paymentOrder = (data) => {
+//     return new Promise(async (resolve, reject) => {
+//         try {
+//             if (!data || !Array.isArray(data.result) || data.result.length === 0) {
+//                 throw new Error('Invalid payment data: No products found.');
+//             }
+
+//             // Duyệt qua từng sản phẩm để xử lý thanh toán
+//             const paymentUrls = await Promise.all(
+//                 data.result.map(async (product) => {
+//                     if (!product.realPrice || !product.quantity || !product.paymentType) {
+//                         throw new Error(`Invalid product data: ${JSON.stringify(product)}`);
+//                     }
+
+//                     console.log('Processing payment for product:', product);
+
+//                     // Tạo đối tượng thanh toán từ PaymentFactory
+//                     const paymentProcessor = PaymentFactory.createPayment(product.paymentType, {
+//                         result: [product], // Truyền sản phẩm đơn lẻ vào cho từng loại thanh toán
+//                         total: product.realPrice * product.quantity, // Tính tổng tiền cho sản phẩm này
+//                     });
+
+//                     // Gọi phương thức processPayment để lấy URL thanh toán
+//                     const paymentUrl = await paymentProcessor.processPayment();
+//                     console.log(paymentUrl);
+//                     return {
+//                         productId: product.productId,
+//                         paymentUrl,
+//                     };
+//                 })
+//             );
+
+//             resolve({
+//                 errCode: 0,
+//                 errMessage: 'Success',
+//                 paymentUrls,
+//             });
+//         } catch (error) {
+//             reject({
+//                 errCode: -1,
+//                 errMessage: error.message,
+//             });
+//         }
+//     });
+// };
 let paymentOrder = (data) => {
     return new Promise(async (resolve, reject) => {
         try {
-            let listItem = []
-            let totalPriceProduct = 0
-            for (let i = 0; i < data.result.length; i++) {
-                data.result[i].productDetailSize = await db.ProductDetailSize.findOne({
-                    where: { id: data.result[i].productId },
-                    include: [
-                        { model: db.Allcode, as: 'sizeData' },
-                    ],
-                    raw: true,
-                    nest: true
-                })
-                data.result[i].productDetail = await db.ProductDetail.findOne({
-                    where: { id: data.result[i].productDetailSize.productdetailId }
-                })
-                data.result[i].product = await db.Product.findOne({
-                    where: { id: data.result[i].productDetail.productId }
-                })
-                data.result[i].realPrice = parseFloat((data.result[i].realPrice / EXCHANGE_RATES.USD).toFixed(2))
-
-                console.log(data.result[i].realPrice)
-                console.log(data.total)
-                listItem.push({
-                    "name": data.result[i].product.name + " | " + data.result[i].productDetail.nameDetail + " | " + data.result[i].productDetailSize.sizeData.value,
-                    "sku": data.result[i].productId + "",
-                    "price": data.result[i].realPrice + "",
-                    "currency": "USD",
-                    "quantity": data.result[i].quantity
-                })
-                totalPriceProduct += data.result[i].realPrice * data.result[i].quantity
-                console.log(data.total - totalPriceProduct)
+            if (!data || !Array.isArray(data.result) || data.result.length === 0) {
+                throw new Error('Invalid payment data: No products found.');
             }
-            listItem.push({
-                "name": "Phi ship + Voucher",
-                "sku": "1",
-                "price": parseFloat(data.total - totalPriceProduct).toFixed(2) + "",
-                "currency": "USD",
-                "quantity": 1
-            })
 
+            const paymentUrls = await Promise.all(
+                data.result.map(async (product) => {
+                    if (!product.realPrice || !product.quantity || !product.paymentType) {
+                        throw new Error(`Invalid product data: ${JSON.stringify(product)}`);
+                    }
 
-            var create_payment_json = {
-                "intent": "sale",
-                "payer": {
-                    "payment_method": "paypal"
-                },
-                "redirect_urls": {
-                    "return_url": `http://localhost:5000/payment/success`,
-                    "cancel_url": "http://localhost:5000/payment/cancel"
-                },
-                "transactions": [{
-                    "item_list": {
-                        "items": listItem
-                    },
-                    "amount": {
-                        "currency": "USD",
-                        "total": data.total
-                    },
-                    "description": "This is the payment description."
-                }]
-            };
+                    console.log('Processing payment for product:', product);
 
-            paypal.payment.create(create_payment_json, function (error, payment) {
-                if (error) {
-                    resolve({
-                        errCode: -1,
-                        errMessage: error,
+                    const paymentProcessor = PaymentFactory.createPayment(product.paymentType, {
+                        result: [product],
+                        total: product.realPrice * product.quantity,
+                    });
 
-                    })
+                    const paymentUrl = await paymentProcessor.processPayment();
+                    console.log('Generated Payment URL:', paymentUrl);
+                    
+                    return {
+                        productId: product.productId,
+                        paymentUrl,
+                    };
+                })
+            );
 
-
-                } else {
-
-                    resolve({
-                        errCode: 0,
-                        errMessage: 'ok',
-                        link: payment.links[1].href
-                    })
-
-                }
-            });
-
-
+            if (paymentUrls.length > 0 && paymentUrls[0].paymentUrl) {
+                const approvalUrl = paymentUrls[0].paymentUrl;
+                console.log('Redirecting to:', approvalUrl);
+                // Thực hiện chuyển hướng ở đây
+                resolve({
+                    errCode: 0,
+                    errMessage: 'Redirecting to PayPal',
+                    link: approvalUrl,
+                });
+            } else {
+                reject({
+                    errCode: -1,
+                    errMessage: 'No valid payment URL generated.',
+                });
+            }
         } catch (error) {
-            reject(error)
+            console.error('Error in paymentOrder:', error.message);
+            reject({
+                errCode: -1,
+                errMessage: error.message,
+            });
         }
-    })
-}
+    });
+};
+
 let paymentOrderSuccess = (data) => {
     return new Promise(async (resolve, reject) => {
         try {
@@ -543,14 +678,6 @@ let paymentOrderSuccess = (data) => {
 
                     }
                 });
-
-
-
-
-
-
-
-
             }
         } catch (error) {
             reject(error)
