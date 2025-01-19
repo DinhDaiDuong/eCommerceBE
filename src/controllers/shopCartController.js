@@ -1,10 +1,14 @@
 import shopCartService from '../services/shopCartService';
-import ShopCartManager from '../ObserverPattern/ShopCartManager';
+import ShopCartPublisher from '../ObserverPattern/ShopCartPublisher';
+import VoucherAdapter from '../AdapterPattern/VoucherAdapter';
 
 let addShopCart = async (req, res) => {
     try {
         // let data = await shopCartService.addShopCart(req.body);
-        let data = await new ShopCartManager().addShopCart(req.body);
+        let shopCartPublisher = new ShopCartPublisher();
+        shopCartPublisher.addObserver(new VoucherAdapter());
+        let data = await shopCartPublisher.addShopCart(req.body);
+        
         return res.status(200).json(data);
     } catch (error) {
         console.log(error)
@@ -17,7 +21,7 @@ let addShopCart = async (req, res) => {
 let getAllShopCartByUserId = async (req, res) => {
     try {
         // let data = await shopCartService.getAllShopCartByUserId(req.query.id);
-        let data = await new ShopCartManager().getAllShopCartByUserId(req.query.id);
+        let data = await new ShopCartPublisher().getAllShopCartByUserId(req.query.id);
         return res.status(200).json(data);
     } catch (error) {
         console.log(error)
@@ -30,7 +34,7 @@ let getAllShopCartByUserId = async (req, res) => {
 let deleteItemShopCart = async (req, res) => {
     try {
         // let data = await shopCartService.deleteItemShopCart(req.body);
-        let data = await new ShopCartManager().deleteItemShopCart(req.body);
+        let data = await new ShopCartPublisher().deleteItemShopCart(req.body);
         return res.status(200).json(data);
     } catch (error) {
         console.log(error)
