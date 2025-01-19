@@ -1,4 +1,3 @@
-// models/OrderProduct.js
 const { Model } = require('sequelize');
 const PendingState = require('../states/PendingState');
 const ConfirmedState = require('../states/ConfirmedState');
@@ -14,7 +13,6 @@ module.exports = (sequelize, DataTypes) => {
             OrderProduct.belongsTo(models.Allcode, { foreignKey: 'statusId', targetKey: 'code', as: 'statusOrderData' });
         }
 
-        // Khởi tạo các trạng thái
         initStates() {
             this.pendingState = new PendingState(this);
             this.confirmedState = new ConfirmedState(this);
@@ -25,7 +23,6 @@ module.exports = (sequelize, DataTypes) => {
             this.setStateById(this.statusId);
         }
 
-        // Đặt trạng thái hiện tại
         setState(state) {
             this.currentState = state;
         }
@@ -52,7 +49,6 @@ module.exports = (sequelize, DataTypes) => {
             }
         }
 
-        // Thực hiện hành động
         confirm() {
             this.currentState.confirm();
             this.statusId = this.currentState.getStatusId();

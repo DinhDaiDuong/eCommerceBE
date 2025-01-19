@@ -551,9 +551,9 @@ let paymentOrder = (data) => {
 
             const paymentUrls = await Promise.all(
                 data.result.map(async (product) => {
-                    if (!product.realPrice || !product.quantity || !product.paymentType) {
-                        throw new Error(`Invalid product data: ${JSON.stringify(product)}`);
-                    }
+                    // if (!product.realPrice || !product.quantity || !product.paymentType) {
+                    //     throw new Error(`Invalid product data: ${JSON.stringify(product)}`);
+                    // }
 
                     console.log('Processing payment for product:', product);
 
@@ -564,7 +564,7 @@ let paymentOrder = (data) => {
 
                     const paymentUrl = await paymentProcessor.processPayment();
                     console.log('Generated Payment URL:', paymentUrl);
-                    
+
                     return {
                         productId: product.productId,
                         paymentUrl,
