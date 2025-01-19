@@ -1,109 +1,130 @@
 import db from "../models/index";
-
+import IShopCartObserver from "../ObserverPattern/IShopCartObserver";
+import AddShopCartManager from "../ObserverPattern/AddShopCartManager";
 
 let addShopCart = (data) => {
+    let cartManager = new AddShopCartManager();
+    let observer = new IShopCartObserver();
+    cartManager.addObserver(observer);
     return new Promise(async (resolve, reject) => {
         try {
-            if (!data.userId || !data.productdetailsizeId || !data.quantity) {
-                resolve({
-                    errCode: 1,
-                    errMessage: 'Missing required parameter !'
-                })
-            } else {
-                let cart = await db.ShopCart.findOne({ where: { userId: data.userId, productdetailsizeId: data.productdetailsizeId, statusId: 0 }, raw: false })
-                if (cart) {
-                    let res = await db.ProductDetailSize.findOne({ where: { id: data.productdetailsizeId } })
-                    if (res) {
-                        let receiptDetail = await db.ReceiptDetail.findAll({ where: { productDetailSizeId: res.id } })
-                        let orderDetail = await db.OrderDetail.findAll({ where: { productId: res.id } })
-                        let quantity = 0
-                        for (let j = 0; j < receiptDetail.length; j++) {
-                            quantity = quantity + receiptDetail[j].quantity
-                        }
-                        for (let k = 0; k < orderDetail.length; k++) {
-                            let order = await db.OrderProduct.findOne({ where: { id: orderDetail[k].orderId } })
-                            if (order.statusId != 'S7') {
-
-                                quantity = quantity - orderDetail[k].quantity
-                            }
-                        }
-                        res.stock = quantity
-                    }
-
-
-
-                    if (data.type === "UPDATE_QUANTITY") {
-
-                        if (+data.quantity > res.stock) {
-                            resolve({
-                                errCode: 2,
-                                errMessage: `Chỉ còn ${res.stock} sản phẩm`,
-                                quantity: res.stock
-                            })
-                        } else {
-                            cart.quantity = +data.quantity
-                            await cart.save()
-                        }
-                    } else {
-
-                        if ((+cart.quantity + (+data.quantity)) > res.stock) {
-                            resolve({
-                                errCode: 2,
-                                errMessage: `Chỉ còn ${res.stock} sản phẩm`,
-                                quantity: res.stock
-                            })
-                        } else {
-                            cart.quantity = +cart.quantity + (+data.quantity)
-                            await cart.save()
-                        }
-                    }
-
-                }
-                else {
-                    let res = await db.ProductDetailSize.findOne({ where: { id: data.productdetailsizeId } })
-                    if (res) {
-                        let receiptDetail = await db.ReceiptDetail.findAll({ where: { productDetailSizeId: res.id } })
-                        let orderDetail = await db.OrderDetail.findAll({ where: { productId: res.id } })
-                        let quantity = 0
-                        for (let j = 0; j < receiptDetail.length; j++) {
-                            quantity = quantity + receiptDetail[j].quantity
-                        }
-                        for (let k = 0; k < orderDetail.length; k++) {
-                            let order = await db.OrderProduct.findOne({ where: { id: orderDetail[k].orderId } })
-                            if (order.statusId != 'S7') {
-
-                                quantity = quantity - orderDetail[k].quantity
-                            }
-                        }
-                        res.stock = quantity
-                    }
-
-                    if (data.quantity > res.stock) {
-                        resolve({
-                            errCode: 2,
-                            errMessage: `Chỉ còn ${res.stock} sản phẩm`,
-                            quantity: res.stock
-                        })
-                    } else {
-                        await db.ShopCart.create({
-                            userId: data.userId,
-                            productdetailsizeId: data.productdetailsizeId,
-                            quantity: data.quantity,
-                            statusId: 0
-                        })
-                    }
-
-                }
-                resolve({
-                    errCode: 0,
-                    errMessage: 'ok'
-                })
-            }
-        } catch (error) {
-            reject(error)
+            cartManager.addShopCart(data);
+            resolve({
+                errCode: 0,
+                errMessage: 'ok'
+            });
+        }
+        catch (error) {
+            reject(error);
         }
     })
 }
+
+
+
+// let addShopCart = (data) => {
+//     return new Promise(async (resolve, reject) => {
+//         try {
+//             if (!data.userId || !data.productdetailsizeId || !data.quantity) {
+//                 resolve({
+//                     errCode: 1,
+//                     errMessage: 'Missing required parameter !'
+//                 })
+//             } else {
+//                 let cart = await db.ShopCart.findOne({ where: { userId: data.userId, productdetailsizeId: data.productdetailsizeId, statusId: 0 }, raw: false })
+//                 if (cart) {
+//                     let res = await db.ProductDetailSize.findOne({ where: { id: data.productdetailsizeId } })
+//                     if (res) {
+//                         let receiptDetail = await db.ReceiptDetail.findAll({ where: { productDetailSizeId: res.id } })
+//                         let orderDetail = await db.OrderDetail.findAll({ where: { productId: res.id } })
+//                         let quantity = 0
+//                         for (let j = 0; j < receiptDetail.length; j++) {
+//                             quantity = quantity + receiptDetail[j].quantity
+//                         }
+//                         for (let k = 0; k < orderDetail.length; k++) {
+//                             let order = await db.OrderProduct.findOne({ where: { id: orderDetail[k].orderId } })
+//                             if (order.statusId != 'S7') {
+
+//                                 quantity = quantity - orderDetail[k].quantity
+//                             }
+//                         }
+//                         res.stock = quantity
+//                     }
+
+
+
+//                     if (data.type === "UPDATE_QUANTITY") {
+
+//                         if (+data.quantity > res.stock) {
+//                             resolve({
+//                                 errCode: 2,
+//                                 errMessage: `Chỉ còn ${res.stock} sản phẩm`,
+//                                 quantity: res.stock
+//                             })
+//                         } else {
+//                             cart.quantity = +data.quantity
+//                             await cart.save()
+//                         }
+//                     } else {
+
+//                         if ((+cart.quantity + (+data.quantity)) > res.stock) {
+//                             resolve({
+//                                 errCode: 2,
+//                                 errMessage: `Chỉ còn ${res.stock} sản phẩm`,
+//                                 quantity: res.stock
+//                             })
+//                         } else {
+//                             cart.quantity = +cart.quantity + (+data.quantity)
+//                             await cart.save()
+//                         }
+//                     }
+
+//                 }
+//                 else {
+//                     let res = await db.ProductDetailSize.findOne({ where: { id: data.productdetailsizeId } })
+//                     if (res) {
+//                         let receiptDetail = await db.ReceiptDetail.findAll({ where: { productDetailSizeId: res.id } })
+//                         let orderDetail = await db.OrderDetail.findAll({ where: { productId: res.id } })
+//                         let quantity = 0
+//                         for (let j = 0; j < receiptDetail.length; j++) {
+//                             quantity = quantity + receiptDetail[j].quantity
+//                         }
+//                         for (let k = 0; k < orderDetail.length; k++) {
+//                             let order = await db.OrderProduct.findOne({ where: { id: orderDetail[k].orderId } })
+//                             if (order.statusId != 'S7') {
+
+//                                 quantity = quantity - orderDetail[k].quantity
+//                             }
+//                         }
+//                         res.stock = quantity
+//                     }
+
+//                     if (data.quantity > res.stock) {
+//                         resolve({
+//                             errCode: 2,
+//                             errMessage: `Chỉ còn ${res.stock} sản phẩm`,
+//                             quantity: res.stock
+//                         })
+//                     } else {
+//                         await db.ShopCart.create({
+//                             userId: data.userId,
+//                             productdetailsizeId: data.productdetailsizeId,
+//                             quantity: data.quantity,
+//                             statusId: 0
+//                         })
+//                     }
+
+//                 }
+//                 resolve({
+//                     errCode: 0,
+//                     errMessage: 'ok'
+//                 })
+//             }
+//         } catch (error) {
+//             reject(error)
+//         }
+//     })
+// }
 let getAllShopCartByUserId = (id) => {
     return new Promise(async (resolve, reject) => {
         try {
