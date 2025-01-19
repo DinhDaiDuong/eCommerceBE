@@ -1,28 +1,32 @@
-const IOrderBuilder = require('./IOrderBuilder');
-const Order = require('./Order');
-
 class OrderBuilder extends IOrderBuilder {
     constructor() {
         super();
-        this.order = new Order();
+        this.reset();
     }
 
-    setAddressUser(addressUserId) {
+    reset() {
+        this.order = {
+            addressUserId: null,
+            isPaymentOnlien: false,
+            statusId: 'S3',
+            typeShipId: null,
+            voucherId: null,
+            note: null,
+            arrDataShopCart: []
+        };
+    }
+
+    setAddress(addressUserId) {
         this.order.addressUserId = addressUserId;
         return this;
     }
 
-    setPaymentMethod(isOnline) {
+    setPaymentOnline(isOnline) {
         this.order.isPaymentOnlien = isOnline;
         return this;
     }
 
-    setStatus(statusId) {
-        this.order.statusId = statusId;
-        return this;
-    }
-
-    setShipType(typeShipId) {
+    setTypeShip(typeShipId) {
         this.order.typeShipId = typeShipId;
         return this;
     }
@@ -37,24 +41,45 @@ class OrderBuilder extends IOrderBuilder {
         return this;
     }
 
-    setShipper(shipperId) {
-        this.order.shipperId = shipperId;
+    setCartItems(items) {
+        this.order.arrDataShopCart = items;
         return this;
     }
 
-    setImage(image) {
-        this.order.image = image;
-        return this;
+    async build() {
+        if (!this.validateOrder()) {
+            throw new Error('Missing required parameters!');
+        }
+
+        try {
+            const product = await this.createOrderProduct();
+            await this.createOrderDetails(product.dataValues.id);
+            return product;
+        } catch (error) {
+            throw error;
+        }
     }
 
-    addOrderDetail(detail) {
-        this.order.orderDetails.push(detail);
-        return this;
+    validateOrder() {
+        return this.order.addressUserId && this.order.typeShipId;
     }
 
-    build() {
-        return this.order;
+    async createOrderProduct() {
+        return await db.OrderProduct.create({
+            addressUserId: this.order.addressUserId,
+            isPaymentOnlien: this.order.isPaymentOnlien,
+            statusId: this.order.statusId,
+            typeShipId: this.order.typeShipId,
+            voucherId: this.order.voucherId,
+            note: this.order.note
+        });
+    }
+
+    async createOrderDetails(orderId) {
+        const orderDetails = this.order.arrDataShopCart.map(item => ({
+            ...item,
+            orderId: orderId
+        }));
+        await db.OrderDetail.bulkCreate(orderDetails);
     }
 }
-
-module.exports = OrderBuilder;
