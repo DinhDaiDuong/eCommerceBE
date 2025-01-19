@@ -80,6 +80,10 @@ let createNewOrder = (data) => {
         }
     })
 }
+
+
+
+// Builder pattern
 let getAllOrders = (data) => {
     return new Promise(async (resolve, reject) => {
         try {
