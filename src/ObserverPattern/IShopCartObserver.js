@@ -1,4 +1,4 @@
-class IShopCartObserver {
+class IShopCartObserver {    
     update(data){}
 }
 export default IShopCartObserver;
